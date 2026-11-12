@@ -4,9 +4,10 @@ import {
   sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile,
 } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
 import {
-  doc, getDoc, getFirestore, runTransaction, serverTimestamp,
+  doc, getFirestore, runTransaction, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
 
+// Le chiavi web Firebase sono pubbliche; la sicurezza sta nelle Rules.
 const firebaseApp = initializeApp({
   apiKey: 'AIzaSyC7Tbqt5FzJK8Z_USkCMWxXiHZp8uRN26A',
   authDomain: 'mattedev-account.firebaseapp.com',
@@ -18,24 +19,21 @@ const firebaseApp = initializeApp({
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => [...document.querySelectorAll(selector)];
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 let mode = 'login';
-let signingUp = false;
+let signingUp = false; // evita redirect/verify prima di finire la registrazione
 
+// --- Redirect sicuro: solo https su mattedev.com e sottodomini ---
 const params = new URLSearchParams(location.search);
-const fallbackRedirectUrl = new URL('../app/index.html', location.href).href;
 const redirectUrl = (() => {
   try {
-    const url = new URL(params.get('redirect') || '');
-    const isMatteDev = url.protocol === 'https:'
-      && (url.hostname === 'mattedev.com' || url.hostname.endsWith('.mattedev.com'));
-    return isMatteDev ? url.href : fallbackRedirectUrl;
-  } catch {
-    return fallbackRedirectUrl;
-  }
+    const u = new URL(params.get('redirect') || '');
+    const ok = u.protocol === 'https:' && (u.hostname === 'mattedev.com' || u.hostname.endsWith('.mattedev.com'));
+    return ok ? u.href : null;
+  } catch { return null; }
 })();
 const appName = (params.get('app') || '').slice(0, 40);
 if (appName) {
@@ -54,19 +52,17 @@ const ERRORS = {
   'username-taken': 'Username già in uso.',
   'username-invalid': 'Username non valido: 3-20 caratteri, solo lettere, numeri e _.',
 };
-const errText = (error) => ERRORS[error.code] || ERRORS[error.message] || error.message;
+const errText = (e) => ERRORS[e.code] || ERRORS[e.message] || e.message;
 
-function setMsg(element, text, type = 'error') {
-  element.textContent = text;
-  element.hidden = !text;
-  element.classList.toggle('success', type === 'success');
-  element.classList.toggle('error', type === 'error');
+function setMsg(el, text, type = 'error') {
+  el.textContent = text;
+  el.hidden = !text;
+  el.classList.toggle('success', type === 'success');
+  el.classList.toggle('error', type === 'error');
 }
 
 function show(screen) {
-  for (const id of ['loading', 'auth', 'verify', 'done']) {
-    $(`#${id}-screen`).hidden = id !== screen;
-  }
+  for (const id of ['loading', 'auth', 'verify', 'done']) $(`#${id}-screen`).hidden = id !== screen;
 }
 
 function render(user) {
@@ -81,103 +77,78 @@ function render(user) {
   show('done');
 }
 
+// --- Registrazione: crea utente, riserva username in transazione ---
 async function signUp(username, email, password) {
   if (!USERNAME_RE.test(username)) throw new Error('username-invalid');
-  const usernameRef = doc(db, 'usernames', username);
-  if ((await getDoc(usernameRef)).exists()) throw new Error('username-taken');
+  const ref = doc(db, 'usernames', username);
 
   signingUp = true;
-  let user;
+  const { user } = await createUserWithEmailAndPassword(auth, email, password);
   try {
-    ({ user } = await createUserWithEmailAndPassword(auth, email, password));
-  } catch (error) {
-    signingUp = false;
-    throw error;
-  }
-  try {
-    await updateProfile(user, { displayName: username });
-    await runTransaction(db, async (transaction) => {
-      if ((await transaction.get(usernameRef)).exists()) throw new Error('username-taken');
-      transaction.set(usernameRef, { uid: user.uid, createdAt: serverTimestamp() });
-      transaction.set(doc(db, 'users', user.uid), { username, createdAt: serverTimestamp() });
+    await runTransaction(db, async (tx) => {
+      if ((await tx.get(ref)).exists()) throw new Error('username-taken');
+      tx.set(ref, { uid: user.uid, createdAt: serverTimestamp() });
+      tx.set(doc(db, 'users', user.uid), { username, createdAt: serverTimestamp() });
     });
-  } catch (error) {
-    try {
-      await deleteUser(user);
-    } catch (cleanupError) {
-      signingUp = false;
-      render(auth.currentUser);
-      const message = `${errText(error)} Non è stato possibile rimuovere l'account incompleto: ${errText(cleanupError)}`;
-      const target = auth.currentUser?.email && !auth.currentUser.emailVerified
-        ? $('#verify-message')
-        : $('#auth-error');
-      setMsg(target, message);
-      return;
-    }
+    await updateProfile(user, { displayName: username });
+  } catch (e) {
+    await deleteUser(user).catch(() => {});
     signingUp = false;
-    render(auth.currentUser);
-    throw error;
+    throw e;
   }
-
+  await sendEmailVerification(user);
   signingUp = false;
-  render(user);
-  try {
-    await sendEmailVerification(user);
-    setMsg($('#verify-message'), 'Email di verifica inviata. Controlla anche lo spam.', 'success');
-  } catch (error) {
-    setMsg($('#verify-message'), `Invio email non riuscito: ${errText(error)}`);
-  }
+  render(auth.currentUser);
+  setMsg($('#verify-message'), 'Email di verifica inviata. Controlla anche lo spam.', 'success');
 }
 
-$('#auth-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
+$('#auth-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
   setMsg($('#auth-error'), '');
-  const formData = new FormData(event.currentTarget);
-  const email = String(formData.get('email') || '').trim();
-  const password = String(formData.get('password') || '');
-  const username = String(formData.get('username') || '').trim().toLowerCase();
-  const button = $('#auth-submit');
-  button.disabled = true;
+  const f = new FormData(e.currentTarget);
+  const email = String(f.get('email') || '').trim();
+  const password = String(f.get('password') || '');
+  const username = String(f.get('username') || '').trim().toLowerCase();
+  const btn = $('#auth-submit');
+  btn.disabled = true;
   try {
     if (mode === 'signup') await signUp(username, email, password);
     else await signInWithEmailAndPassword(auth, email, password);
-  } catch (error) {
-    setMsg($('#auth-error'), `${mode === 'signup' ? 'Registrazione' : 'Accesso'} non riuscito: ${errText(error)}`);
+  } catch (err) {
+    setMsg($('#auth-error'), `${mode === 'signup' ? 'Registrazione' : 'Accesso'} non riuscito: ${errText(err)}`);
   } finally {
-    button.disabled = false;
+    btn.disabled = false;
   }
 });
 
 $$('[data-mode]').forEach((tab) => tab.addEventListener('click', () => {
   mode = tab.dataset.mode;
-  const isSignup = mode === 'signup';
-  for (const [id, active] of [['login-tab', !isSignup], ['signup-tab', isSignup]]) {
-    $(`#${id}`).classList.toggle('active', active);
-    $(`#${id}`).setAttribute('aria-selected', String(active));
+  const s = mode === 'signup';
+  for (const [id, on] of [['login-tab', !s], ['signup-tab', s]]) {
+    $(`#${id}`).classList.toggle('active', on);
+    $(`#${id}`).setAttribute('aria-selected', String(on));
   }
-  $('#auth-title').textContent = isSignup ? 'Crea account' : 'Bentornato';
-  $('#auth-subtitle').textContent = isSignup ? 'Un solo account per tutte le app MatteDev.' : 'Accedi al tuo account MatteDev.';
-  $('#auth-submit').innerHTML = `<span>${isSignup ? 'Registrati' : 'Accedi'}</span><span aria-hidden="true">→</span>`;
-  $('#username-field').hidden = !isSignup;
-  $('#username-field input').required = isSignup;
-  $('#auth-form [name="password"]').autocomplete = isSignup ? 'new-password' : 'current-password';
+  $('#auth-title').textContent = s ? 'Crea account' : 'Bentornato';
+  $('#auth-subtitle').textContent = s ? 'Un solo account per tutte le app MatteDev.' : 'Accedi al tuo account MatteDev.';
+  $('#auth-submit').innerHTML = `<span>${s ? 'Registrati' : 'Accedi'}</span><span aria-hidden="true">→</span>`;
+  $('#username-field').hidden = !s;
+  $('#username-field input').required = s;
+  $('#auth-form [name="password"]').autocomplete = s ? 'new-password' : 'current-password';
   setMsg($('#auth-error'), '');
 }));
 
 $('#check-verification').addEventListener('click', async () => {
-  const button = $('#check-verification');
-  button.disabled = true;
+  const btn = $('#check-verification');
+  btn.disabled = true;
   try {
     if (!auth.currentUser) throw new Error('Sessione scaduta. Accedi di nuovo.');
     await reload(auth.currentUser);
-    if (!auth.currentUser.emailVerified) {
-      return setMsg($('#verify-message'), 'Email non ancora verificata.');
-    }
+    if (!auth.currentUser.emailVerified) return setMsg($('#verify-message'), 'Email non ancora verificata.');
     render(auth.currentUser);
-  } catch (error) {
-    setMsg($('#verify-message'), `Verifica non riuscita: ${errText(error)}`);
+  } catch (err) {
+    setMsg($('#verify-message'), `Verifica non riuscita: ${errText(err)}`);
   } finally {
-    button.disabled = false;
+    btn.disabled = false;
   }
 });
 
@@ -186,28 +157,16 @@ $('#resend-verification').addEventListener('click', async () => {
     if (!auth.currentUser) throw new Error('Sessione scaduta. Accedi di nuovo.');
     await sendEmailVerification(auth.currentUser);
     setMsg($('#verify-message'), 'Email reinviata. Controlla anche lo spam.', 'success');
-  } catch (error) {
-    setMsg($('#verify-message'), `Invio non riuscito: ${errText(error)}`);
+  } catch (err) {
+    setMsg($('#verify-message'), `Invio non riuscito: ${errText(err)}`);
   }
 });
 
-$('#verify-sign-out').addEventListener('click', async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    setMsg($('#verify-message'), `Uscita non riuscita: ${errText(error)}`);
-  }
-});
+for (const id of ['#verify-sign-out', '#done-sign-out']) {
+  $(id).addEventListener('click', () => signOut(auth).catch((err) => setMsg($('#verify-message'), errText(err))));
+}
 
-$('#done-sign-out').addEventListener('click', async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    $('#done-name').textContent = `Impossibile uscire: ${errText(error)}`;
-  }
-});
-
-onAuthStateChanged(auth, render, (error) => {
+onAuthStateChanged(auth, render, (err) => {
   show('auth');
-  setMsg($('#auth-error'), `Autenticazione non disponibile: ${error.message}`);
+  setMsg($('#auth-error'), `Autenticazione non disponibile: ${err.message}`);
 });
