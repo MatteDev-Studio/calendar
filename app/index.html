@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0c0e0d">
+    <meta name="description" content="MatteDev Calendar: organizza i tuoi giorni, un evento alla volta.">
+    <title>Calendario · MatteDev Calendar</title>
+    <link rel="icon" type="image/png" href="../assets/calendar-icon.png">
+    <link rel="icon" type="image/svg+xml" href="../assets/calendar-icon.svg">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <div id="loading-screen" class="loading-screen"><span class="loader"></span>Caricamento MatteDev Calendar</div>
+    <div id="app-shell" class="app-shell" hidden>
+      <header class="topbar">
+        <button class="mobile-menu icon-button" data-action="toggle-sidebar" aria-label="Apri navigazione"><span class="line-icon">☰</span></button>
+        <a class="brand" href="../" aria-label="MatteDev Calendar"><span class="brand-mark logo-mark small"><img src="../assets/calendar-icon.svg" alt=""></span><span>MatteDev <b>Calendar</b></span></a>
+        <div class="topbar-right">
+          <span id="sync-status" class="sync-status"><span class="loader tiny"></span> Sincronizzazione</span>
+          <span class="top-divider"></span>
+          <div class="profile-wrap">
+            <button id="profile-trigger" class="profile-trigger" aria-label="Menu profilo"><span id="profile-avatar" class="avatar-fallback">M</span><span class="chevron-down">⌄</span></button>
+            <div id="profile-menu" class="profile-menu" hidden><span id="profile-name" class="profile-name"></span><span id="profile-email" class="profile-email"></span><button data-action="sign-out"><span class="line-icon">↪</span> Esci dall'account</button></div>
+          </div>
+        </div>
+      </header>
+      <div id="workspace" class="workspace">
+        <aside class="left-sidebar">
+          <button class="create-button" data-action="new-event"><span class="line-icon">＋</span> Crea evento</button>
+          <section class="mini-calendar">
+            <div class="mini-calendar-head"><span id="mini-month"></span><div><button class="mini-arrow" data-action="previous-month" aria-label="Mese precedente"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 4-6 6 6 6"/></svg></button><button class="mini-arrow" data-action="next-month" aria-label="Mese successivo"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg></button></div></div>
+            <div id="mini-weekdays" class="mini-grid mini-weekdays"></div><div id="mini-days" class="mini-grid"></div>
+          </section>
+          <button class="today-link" data-action="today">Vai a oggi</button>
+          <div class="sidebar-rule"></div>
+          <section class="category-section" aria-label="Etichette">
+            <div class="sidebar-section-title">LE TUE ETICHETTE <button data-action="new-category" aria-label="Crea etichetta" title="Crea etichetta">＋</button></div>
+            <div id="category-labels"></div>
+          </section>
+          <div class="sidebar-bottom"><button data-action="toggle-settings"><span class="line-icon">⚙</span> Personalizza</button><span>MATTEDEV CALENDAR <span class="version-pill">v1.0</span></span></div>
+        </aside>
+        <main class="main-content">
+          <div class="calendar-toolbar">
+            <div class="month-heading"><div class="heading-overline">IL TUO CALENDARIO</div><h1 id="month-heading"></h1></div>
+            <div class="toolbar-actions"><button class="today-button" data-action="today">Oggi</button><div class="month-arrows"><button class="icon-button" data-action="previous-month" aria-label="Mese precedente"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 4-6 6 6 6"/></svg></button><button class="icon-button" data-action="next-month" aria-label="Mese successivo"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg></button></div><button class="icon-button settings-trigger" data-action="toggle-settings" aria-label="Impostazioni">⚙</button></div>
+          </div>
+          <div id="error-banner" class="error-banner" hidden><span class="line-icon">!</span><span id="error-message"></span><button data-action="dismiss-error" aria-label="Chiudi">×</button></div>
+          <div class="calendar-layout">
+            <section class="calendar-card" aria-label="Calendario mensile"><div id="calendar-weekdays" class="calendar-weekdays"></div><div id="calendar-grid" class="calendar-grid"></div></section>
+            <aside class="agenda-panel">
+              <div class="agenda-title-row"><div><div class="heading-overline">IL TUO GIORNO</div><h2 id="agenda-heading"></h2></div><button class="agenda-add" data-action="new-event" aria-label="Aggiungi evento">＋</button></div>
+              <p id="selected-date-label" class="selected-date-label"></p><div class="agenda-divider"></div>
+              <div id="today-count" class="today-count" hidden></div><div id="day-agenda"></div>
+              <div class="upcoming-section"><div class="upcoming-heading"><span>PROSSIMI</span><span id="upcoming-count" class="upcoming-count">0</span></div><div id="upcoming-list"></div></div>
+            </aside>
+          </div>
+          <footer class="content-footer"><span id="footer-count">0 eventi salvati</span></footer>
+        </main>
+      </div>
+      <div id="settings-popover" class="settings-popover" hidden>
+        <div class="popover-heading"><div><strong>Personalizza</strong><span>Il calendario, come piace a te</span></div><button data-action="toggle-settings" aria-label="Chiudi impostazioni">×</button></div>
+        <div class="preference-section"><span class="preference-label">COLORE ACCENTO</span><div id="color-options" class="color-options"></div></div>
+        <div class="preference-section week-start-section"><span class="preference-label">LA SETTIMANA INIZIA DI</span><div class="segmented-control"><button data-week-start="1">Lunedì</button><button data-week-start="0">Domenica</button></div></div>
+        <span class="settings-sync"><span class="line-icon">☁</span> Preferenze sincronizzate con il tuo account</span>
+      </div>
+      <div id="modal-root"></div>
+    </div>
+    <script type="module" src="../app.js"></script>
+  </body>
+</html>

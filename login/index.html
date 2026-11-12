@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0c0e0d">
+    <meta name="description" content="Accedi o crea il tuo account MatteDev Calendar.">
+    <title>Accedi · MatteDev Calendar</title>
+    <link rel="icon" type="image/png" href="../assets/calendar-icon.png">
+    <link rel="icon" type="image/svg+xml" href="../assets/calendar-icon.svg">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <main id="login-screen" class="login-screen" hidden>
+      <div class="login-orb orb-one"></div>
+      <div class="login-orb orb-two"></div>
+      <section class="login-card auth-card">
+        <h1 id="auth-title">Bentornato</h1>
+        <p id="auth-subtitle">Accedi al tuo account per continuare.</p>
+        <div class="auth-tabs" role="tablist" aria-label="Tipo di accesso">
+          <button id="login-tab" class="tab-btn active" type="button" role="tab" aria-selected="true" data-auth-mode="login">Accedi</button>
+          <button id="signup-tab" class="tab-btn" type="button" role="tab" aria-selected="false" data-auth-mode="signup">Registrati</button>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <label class="auth-label">Email<input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="nome@esempio.it"></label>
+          <label class="auth-label">Password<input name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" placeholder="Almeno 8 caratteri"></label>
+          <button id="auth-submit" class="auth-submit" type="submit"><span>Accedi</span><span aria-hidden="true">→</span></button>
+        </form>
+        <p id="login-error" class="error-message" hidden></p>
+        <footer class="auth-footer">
+          <a href="https://privacy.mattedev.com/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+          <span class="auth-divider" aria-hidden="true"></span>
+          <a href="https://privacy.mattedev.com/terms.html" target="_blank" rel="noopener noreferrer">Termini di servizio</a>
+        </footer>
+      </section>
+    </main>
+
+    <main id="verification-screen" class="login-screen" hidden>
+      <div class="login-orb orb-one"></div>
+      <div class="login-orb orb-two"></div>
+      <section class="login-card verification-card">
+        <div class="brand-mark logo-mark"><img src="../assets/calendar-icon.svg" alt=""></div>
+        <span class="eyebrow"><span class="status-dot"></span> UN ULTIMO PASSAGGIO</span>
+        <h1>Controlla la<br><em>tua email</em></h1>
+        <p>Ti abbiamo inviato un link di verifica a <strong id="verification-email"></strong>. Conferma il tuo indirizzo per accedere al calendario.</p>
+        <button id="check-verification" class="auth-submit verification-button" type="button">Ho verificato <span>→</span></button>
+        <button id="resend-verification" class="auth-mode-toggle" type="button">Non hai ricevuto l'email? <strong>Inviala di nuovo</strong></button>
+        <button id="verification-sign-out" class="auth-mode-toggle" type="button">Usa un altro account</button>
+        <p id="verification-message" class="error-message" hidden></p>
+      </section>
+      <span class="login-footer">MATTEDEV STUDIO <span>·</span> ORGANIZZA CON INTENZIONE</span>
+    </main>
+    <div id="loading-screen" class="loading-screen"><span class="loader"></span>Caricamento MatteDev Calendar</div>
+    <script type="module" src="../login.js"></script>
+  </body>
+</html>
