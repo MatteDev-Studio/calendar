@@ -35,6 +35,7 @@ const redirectUrl = (() => {
     return ok ? u.href : null;
   } catch { return null; }
 })();
+const destinationUrl = redirectUrl || new URL('../app/', location.href).href;
 const appName = (params.get('app') || '').slice(0, 40);
 if (appName) {
   const hint = $('#app-hint');
@@ -72,9 +73,7 @@ function render(user) {
     $('#verify-email').textContent = user.email;
     return show('verify');
   }
-  if (redirectUrl) return location.replace(redirectUrl);
-  $('#done-name').textContent = user.displayName || user.email;
-  show('done');
+  return location.replace(destinationUrl);
 }
 
 // --- Registrazione: crea utente, riserva username in transazione ---
